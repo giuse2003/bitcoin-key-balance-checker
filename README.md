@@ -6,7 +6,7 @@ Versione separata del generatore che verifica il saldo di una singola chiave all
 
 1. Esegui `AVVIA_VERIFICA_API.bat`.
 2. Lascia aperta la finestra del servizio.
-3. Apri `bitcoin-api.html`.
+3. Apri `bitcoin-api.html` oppure la pagina GitHub Pages.
 4. Premi `Controlla servizio API`.
 5. Genera le chiavi e premi `Verifica` sulla riga desiderata.
 
@@ -34,3 +34,13 @@ Il servizio locale ascolta esclusivamente su:
 ```text
 127.0.0.1:18766
 ```
+
+## GitHub Pages
+
+La pagina pubblica può essere aperta da:
+
+```text
+https://giuse2003.github.io/bitcoin-key-balance-checker/
+```
+
+Il file `AVVIA_VERIFICA_API.bat` deve comunque essere avviato sul PC prima di usare il pulsante di verifica.
