@@ -396,8 +396,16 @@
       }
 
       .wif {
+        display: block;
+        min-width: 0;
+        white-space: normal !important;
         overflow-wrap: anywhere;
         word-break: break-all;
+      }
+
+      .wif::before {
+        display: block;
+        margin-bottom: 4px;
       }
 
       .balance {
