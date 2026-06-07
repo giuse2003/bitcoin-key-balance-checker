@@ -12,6 +12,7 @@ Questa guida permette di lavorare da qualsiasi computer Windows con Git installa
 
 ```powershell
 gh auth login
+gh auth setup-git
 ```
 
 4. Clona il progetto:
@@ -69,6 +70,8 @@ git status -sb
 
 Una copia allineata non deve mostrare file modificati e il ramo locale non deve risultare avanti o indietro rispetto a `origin/main`.
 
+La cartella deve contenere la directory nascosta `.git`. Se hai ricevuto soltanto i singoli file, esegui nuovamente `git clone` invece di crearla o copiarla manualmente.
+
 ## Risolvere modifiche concorrenti
 
 Se un altro computer ha già pubblicato modifiche:
@@ -78,4 +81,3 @@ git pull
 ```
 
 Se Git segnala un conflitto, non forzare il push. Apri i file indicati, conserva le modifiche corrette, verifica nuovamente la pagina e poi esegui commit e push.
-
