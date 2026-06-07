@@ -23,6 +23,11 @@ HOST = "127.0.0.1"
 PORT = 18766
 TIMEOUT_SECONDS = 15
 USER_AGENT = "BitcoinEducationalBalanceChecker/1.0"
+ALLOWED_ORIGINS = {
+    "null",
+    "file://",
+    "https://giuse2003.github.io",
+}
 
 PROVIDERS = (
     {
@@ -148,8 +153,11 @@ class ApiBridgeHandler(BaseHTTPRequestHandler):
 
     def end_headers(self) -> None:
         origin = self.headers.get("Origin")
-        if origin in (None, "null", "file://"):
-            self.send_header("Access-Control-Allow-Origin", origin or "null")
+        if origin is None:
+            self.send_header("Access-Control-Allow-Origin", "null")
+        elif origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Private-Network", "true")
