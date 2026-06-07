@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Generatore Bitcoin con verifica API</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #162033;
+      --muted: #58677d;
+      --border: #d7deea;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --danger-bg: #fff3cd;
+      --danger-border: #f0c36d;
+      --danger-text: #5c3b00;
+      --error-bg: #fdecec;
+      --error-border: #ef9a9a;
+      --error-text: #7f1d1d;
+      --ok-bg: #eaf7ef;
+      --ok-border: #9ad1ac;
+      --ok-text: #135128;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1440px, calc(100% - 32px));
+      margin: 28px auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+      max-width: 860px;
+    }
+
+    .notice {
+      margin: 0 0 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--danger-border);
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      font-weight: 700;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(24, 36, 56, 0.06);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto auto auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--text);
+      font: 16px Consolas, "Courier New", monospace;
+    }
+
+    input:focus {
+      outline: 2px solid rgba(15, 118, 110, 0.22);
+      border-color: var(--accent);
+    }
+
+    button {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    button.secondary {
+      background: #ffffff;
+      color: var(--accent-dark);
+    }
+
+    button.secondary:hover {
+      background: #edf7f5;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0 0;
+    }
+
+    .message {
+      display: none;
+      margin: 12px 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .message.error {
+      display: block;
+      border: 1px solid var(--error-border);
+      background: var(--error-bg);
+      color: var(--error-text);
+    }
+
+    .message.ok {
+      display: block;
+      border: 1px solid var(--ok-border);
+      background: var(--ok-bg);
+      color: var(--ok-text);
+    }
+
+    .scale-info {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #f9fbfd;
+      color: var(--text);
+      text-align: center;
+    }
+
+    .scale-info .scale-label {
+      display: block;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: 400;
+    }
+
+    .scale-info span {
+      display: block;
+      font-family: Consolas, "Courier New", monospace;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .limit-note {
+      margin: 8px 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      width: fit-content;
+      max-width: 100%;
+      margin-top: 16px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    table {
+      width: auto;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 900px;
+    }
+
+    th,
+    td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef3f8;
+      color: #29384d;
+      font-size: 14px;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th:nth-child(1),
+    td:nth-child(1) {
+      width: 90px;
+    }
+
+    th:nth-child(2),
+    td:nth-child(2) {
+      width: 630px;
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+      width: 180px;
+    }
+
+    .num {
+      font-family: Consolas, "Courier New", monospace;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .wif {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 15px;
+      white-space: nowrap;
+      letter-spacing: 0;
+      user-select: text;
+    }
+
+    .balance {
+      color: var(--muted);
+      font-size: 14px;
+      white-space: nowrap;
+      user-select: text;
+    }
+
+    .balance-result {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--text);
+      font-family: Consolas, "Courier New", monospace;
+      font-weight: 700;
+    }
+
+    .balance button {
+      min-height: 34px;
+      padding: 6px 10px;
+      font-size: 13px;
+    }
+
+    .node-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px 0 14px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      flex: 0 0 10px;
+      border-radius: 50%;
+      background: #a94442;
+    }
+
+    .status-dot.online {
+      background: #26834a;
+    }
+
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 26px 12px;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 20px, 1180px);
+        margin-top: 16px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .actions button {
+        flex: 1 1 180px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Generatore Bitcoin con verifica API</h1>
+    <p class="subtitle">Versione separata che verifica una singola chiave alla volta tramite explorer pubblici indicizzati.</p>
+
+    <p class="notice">Usa la verifica solo per chiavi di tua proprietà. La WIF resta sul PC: online vengono inviati esclusivamente gli indirizzi pubblici derivati.</p>
+
+    <section class="panel" aria-label="Generatore">
+      <div class="controls">
+        <div>
+          <label for="startNumber">Numero iniziale</label>
+          <input id="startNumber" inputmode="numeric" autocomplete="off" spellcheck="false" value="1">
+        </div>
+
+        <div>
+          <label for="quantity">Quante chiavi generare</label>
+          <input id="quantity" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" value="200">
+        </div>
+
+        <button id="generateButton" type="button">Genera</button>
+        <button id="previousButton" class="secondary" type="button">Indietro</button>
+        <button id="nextButton" class="secondary" type="button">Avanti</button>
+      </div>
+
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+
+      <p class="limit-note">Limite massimo: 20.000 chiavi per pagina, per evitare rallentamenti o blocchi del browser durante il calcolo e la visualizzazione della tabella.</p>
+      <p class="limit-note">Avvia prima il servizio API locale. La verifica usa mempool.space con fallback su Blockstream e richiede una connessione Internet.</p>
+
+      <div class="node-status">
+        <span id="nodeStatusDot" class="status-dot" aria-hidden="true"></span>
+        <span id="nodeStatusText">Servizio API locale non verificato</span>
+        <button id="checkNodeButton" class="secondary" type="button">Controlla servizio API</button>
+      </div>
+
+      <div class="scale-info">
+        <span class="scale-label">Pagina</span>
+        <span id="pageNumber">1</span>
+        <span class="scale-label">di</span>
+        <span id="totalPages">-</span>
+      </div>
+
+      <div class="actions">
+        <button id="copyButton" class="secondary" type="button">Copia CSV</button>
+        <button id="downloadButton" class="secondary" type="button">Scarica CSV</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Numero</th>
+              <th>Chiave privata WIF compresso</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="keyTableBody">
+            <tr>
+              <td colspan="3" class="empty">Premi "Genera" per creare la tabella.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    /*
+      Questa versione usa fetch esclusivamente verso 127.0.0.1. Il servizio
+      locale invia agli explorer pubblici soltanto gli indirizzi Bitcoin.
+    */
+
+    // Ordine massimo della curva secp256k1: le chiavi private valide vanno da 1 a MAX_PRIVATE_KEY.
+    const MAX_PRIVATE_KEY = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140");
+    const DEFAULT_QUANTITY = 200;
+    const MAX_QUANTITY = 20000;
+    const LOCAL_BRIDGE_URL = "http://127.0.0.1:18766";
+    const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    const SHA256_K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+
+    const startNumberInput = document.getElementById("startNumber");
+    const quantityInput = document.getElementById("quantity");
+    const generateButton = document.getElementById("generateButton");
+    const previousButton = document.getElementById("previousButton");
+    const nextButton = document.getElementById("nextButton");
+    const copyButton = document.getElementById("copyButton");
+    const downloadButton = document.getElementById("downloadButton");
+    const keyTableBody = document.getElementById("keyTableBody");
+    const message = document.getElementById("message");
+    const pageNumber = document.getElementById("pageNumber");
+    const totalPages = document.getElementById("totalPages");
+    const nodeStatusDot = document.getElementById("nodeStatusDot");
+    const nodeStatusText = document.getElementById("nodeStatusText");
+    const checkNodeButton = document.getElementById("checkNodeButton");
+
+    let currentRows = [];
+
+    function rotateRight(value, bits) {
+      return (value >>> bits) | (value << (32 - bits));
+    }
+
+    function formatBigInt(value) {
+      return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    function concatBytes(parts) {
+      let totalLength = 0;
+
+      for (const part of parts) {
+        totalLength += part.length;
+      }
+
+      const result = new Uint8Array(totalLength);
+      let offset = 0;
+
+      for (const part of parts) {
+        result.set(part, offset);
+        offset += part.length;
+      }
+
+      return result;
+    }
+
+    // Implementazione locale di SHA-256: evita librerie, CDN e dipendenze da API del browser.
+    function sha256(bytes) {
+      const bitLength = bytes.length * 8;
+      const paddedLength = (((bytes.length + 9 + 63) >> 6) << 6);
+      const padded = new Uint8Array(paddedLength);
+      const words = new Uint32Array(64);
+
+      padded.set(bytes);
+      padded[bytes.length] = 0x80;
+
+      const highBits = Math.floor(bitLength / 0x100000000);
+      const lowBits = bitLength >>> 0;
+      padded[paddedLength - 8] = (highBits >>> 24) & 0xff;
+      padded[paddedLength - 7] = (highBits >>> 16) & 0xff;
+      padded[paddedLength - 6] = (highBits >>> 8) & 0xff;
+      padded[paddedLength - 5] = highBits & 0xff;
+      padded[paddedLength - 4] = (lowBits >>> 24) & 0xff;
+      padded[paddedLength - 3] = (lowBits >>> 16) & 0xff;
+      padded[paddedLength - 2] = (lowBits >>> 8) & 0xff;
+      padded[paddedLength - 1] = lowBits & 0xff;
+
+      let h0 = 0x6a09e667;
+      let h1 = 0xbb67ae85;
+      let h2 = 0x3c6ef372;
+      let h3 = 0xa54ff53a;
+      let h4 = 0x510e527f;
+      let h5 = 0x9b05688c;
+      let h6 = 0x1f83d9ab;
+      let h7 = 0x5be0cd19;
+
+      for (let offset = 0; offset < padded.length; offset += 64) {
+        for (let index = 0; index < 16; index += 1) {
+          const position = offset + index * 4;
+          words[index] = (
+            (padded[position] << 24) |
+            (padded[position + 1] << 16) |
+            (padded[position + 2] << 8) |
+            padded[position + 3]
+          ) >>> 0;
+        }
+
+        for (let index = 16; index < 64; index += 1) {
+          const s0 = (rotateRight(words[index - 15], 7) ^ rotateRight(words[index - 15], 18) ^ (words[index - 15] >>> 3)) >>> 0;
+          const s1 = (rotateRight(words[index - 2], 17) ^ rotateRight(words[index - 2], 19) ^ (words[index - 2] >>> 10)) >>> 0;
+          words[index] = (words[index - 16] + s0 + words[index - 7] + s1) >>> 0;
+        }
+
+        let a = h0;
+        let b = h1;
+        let c = h2;
+        let d = h3;
+        let e = h4;
+        let f = h5;
+        let g = h6;
+        let h = h7;
+
+        for (let index = 0; index < 64; index += 1) {
+          const s1 = (rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25)) >>> 0;
+          const ch = ((e & f) ^ (~e & g)) >>> 0;
+          const temp1 = (h + s1 + ch + SHA256_K[index] + words[index]) >>> 0;
+          const s0 = (rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22)) >>> 0;
+          const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
+          const temp2 = (s0 + maj) >>> 0;
+
+          h = g;
+          g = f;
+          f = e;
+          e = (d + temp1) >>> 0;
+          d = c;
+          c = b;
+          b = a;
+          a = (temp1 + temp2) >>> 0;
+        }
+
+        h0 = (h0 + a) >>> 0;
+        h1 = (h1 + b) >>> 0;
+        h2 = (h2 + c) >>> 0;
+        h3 = (h3 + d) >>> 0;
+        h4 = (h4 + e) >>> 0;
+        h5 = (h5 + f) >>> 0;
+        h6 = (h6 + g) >>> 0;
+        h7 = (h7 + h) >>> 0;
+      }
+
+      const digest = new Uint8Array(32);
+      const hashWords = [h0, h1, h2, h3, h4, h5, h6, h7];
+
+      for (let index = 0; index < hashWords.length; index += 1) {
+        const word = hashWords[index];
+        const position = index * 4;
+        digest[position] = (word >>> 24) & 0xff;
+        digest[position + 1] = (word >>> 16) & 0xff;
+        digest[position + 2] = (word >>> 8) & 0xff;
+        digest[position + 3] = word & 0xff;
+      }
+
+      return digest;
+    }
+
+    function bigIntTo32Bytes(value) {
+      const bytes = new Uint8Array(32);
+      let remaining = value;
+
+      for (let index = 31; index >= 0; index -= 1) {
+        bytes[index] = Number(remaining & 0xffn);
+        remaining >>= 8n;
+      }
+
+      return bytes;
+    }
+
+    function base58Encode(bytes) {
+      let value = 0n;
+      let output = "";
+
+      for (const byte of bytes) {
+        value = (value << 8n) + BigInt(byte);
+      }
+
+      while (value > 0n) {
+        const remainder = Number(value % 58n);
+        output = BASE58_ALPHABET[remainder] + output;
+        value /= 58n;
+      }
+
+      for (const byte of bytes) {
+        if (byte !== 0) {
+          break;
+        }
+
+        output = "1" + output;
+      }
+
+      return output || "1";
+    }
+
+    // WIF compresso = Base58Check(0x80 + chiave privata a 32 byte + 0x01).
+    function privateKeyToCompressedWif(value) {
+      const payload = concatBytes([
+        new Uint8Array([0x80]),
+        bigIntTo32Bytes(value),
+        new Uint8Array([0x01])
+      ]);
+      const checksum = sha256(sha256(payload)).slice(0, 4);
+
+      return base58Encode(concatBytes([payload, checksum]));
+    }
+
+    // Accetta input decimale oppure esadecimale con prefisso 0x, così è comodo provare valori grandi.
+    function parsePositiveBigInt(text, fieldName) {
+      const cleaned = text.trim();
+
+      if (cleaned === "") {
+        throw new Error(fieldName + " è obbligatorio.");
+      }
+
+      if (/^0x[0-9a-f]+$/i.test(cleaned)) {
+        return BigInt(cleaned);
+      }
+
+      if (/^[0-9]+$/.test(cleaned)) {
+        return BigInt(cleaned);
+      }
+
+      throw new Error(fieldName + " deve essere un numero intero positivo in decimale oppure in esadecimale con prefisso 0x.");
+    }
+
+    function parseQuantity() {
+      const quantityText = quantityInput.value.trim();
+
+      if (!/^[0-9]+$/.test(quantityText)) {
+        throw new Error("Quante chiavi generare deve essere un numero intero positivo.");
+      }
+
+      const quantity = Number(quantityText);
+
+      if (!Number.isSafeInteger(quantity) || quantity < 1) {
+        throw new Error("Quante chiavi generare deve essere almeno 1.");
+      }
+
+      if (quantity > MAX_QUANTITY) {
+        throw new Error("Puoi generare al massimo 20.000 chiavi per pagina, per evitare rallentamenti o blocchi del browser.");
+      }
+
+      return quantity;
+    }
+
+    function parseQuantityBigInt() {
+      const quantityText = quantityInput.value.trim();
+
+      if (!/^[0-9]+$/.test(quantityText)) {
+        throw new Error("Quante chiavi generare deve essere un numero intero positivo.");
+      }
+
+      const quantity = BigInt(quantityText);
+
+      if (quantity < 1n) {
+        throw new Error("Quante chiavi generare deve essere almeno 1.");
+      }
+
+      if (quantity > BigInt(MAX_QUANTITY)) {
+        throw new Error("Puoi generare al massimo 20.000 chiavi per pagina, per evitare rallentamenti o blocchi del browser.");
+      }
+
+      return quantity;
+    }
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = "message " + type;
+    }
+
+    function clearMessage() {
+      message.textContent = "";
+      message.className = "message";
+    }
+
+    function updateScaleInfo() {
+      try {
+        const quantity = parseQuantityBigInt();
+        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
+        const currentPage = ((start - 1n) / quantity) + 1n;
+        const pages = (MAX_PRIVATE_KEY + quantity - 1n) / quantity;
+
+        pageNumber.textContent = formatBigInt(currentPage);
+        totalPages.textContent = formatBigInt(pages);
+      } catch (error) {
+        pageNumber.textContent = "-";
+        totalPages.textContent = "-";
+      }
+    }
+
+    function setEmptyTable(text) {
+      keyTableBody.innerHTML = "";
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 3;
+      cell.className = "empty";
+      cell.textContent = text;
+      row.appendChild(cell);
+      keyTableBody.appendChild(row);
+    }
+
+    function renderRows(rows) {
+      keyTableBody.innerHTML = "";
+
+      for (const item of rows) {
+        const row = document.createElement("tr");
+        const numberCell = document.createElement("td");
+        const wifCell = document.createElement("td");
+        const balanceCell = document.createElement("td");
+        const balanceResult = document.createElement("span");
+        const verifyButton = document.createElement("button");
+
+        numberCell.className = "num";
+        wifCell.className = "wif";
+        balanceCell.className = "balance";
+        balanceResult.className = "balance-result";
+        verifyButton.className = "secondary";
+        verifyButton.type = "button";
+
+        numberCell.textContent = item.number.toString();
+        wifCell.textContent = item.wif;
+        balanceResult.textContent = "Non verificato";
+        verifyButton.textContent = "Verifica";
+        verifyButton.title = "Verifica questa singola chiave tramite API pubblica";
+        verifyButton.addEventListener("click", function () {
+          verifySingleBalance(item, balanceResult, verifyButton);
+        });
+
+        balanceCell.appendChild(balanceResult);
+        balanceCell.appendChild(verifyButton);
+
+        row.appendChild(numberCell);
+        row.appendChild(wifCell);
+        row.appendChild(balanceCell);
+        keyTableBody.appendChild(row);
+      }
+    }
+
+    function formatSats(value) {
+      return formatBigInt(BigInt(value)) + " sat";
+    }
+
+    async function readJsonResponse(response) {
+      const text = await response.text();
+
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error(text || "Risposta non valida dal servizio locale.");
+      }
+    }
+
+    async function checkNodeStatus() {
+      nodeStatusText.textContent = "Controllo del servizio API locale...";
+      nodeStatusDot.classList.remove("online");
+
+      try {
+        const healthResponse = await fetch(LOCAL_BRIDGE_URL + "/health", {
+          method: "GET",
+          cache: "no-store"
+        });
+        const healthData = await readJsonResponse(healthResponse);
+
+        if (!healthResponse.ok || healthData.service !== "online") {
+          throw new Error("Il servizio locale non risponde correttamente.");
+        }
+
+        nodeStatusDot.classList.add("online");
+        nodeStatusText.textContent = "Servizio API locale attivo. Controllo connessione Internet...";
+
+        const response = await fetch(LOCAL_BRIDGE_URL + "/status", {
+          method: "GET",
+          cache: "no-store"
+        });
+        const data = await readJsonResponse(response);
+
+        if (!response.ok) {
+          nodeStatusText.textContent = "Servizio locale attivo, ma le API pubbliche non sono raggiungibili.";
+          showMessage(data.error || "API pubbliche non disponibili.", "error");
+          return;
+        }
+
+        nodeStatusText.textContent = "Servizio API pronto: " + data.provider;
+      } catch (error) {
+        nodeStatusDot.classList.remove("online");
+        nodeStatusText.textContent = "Servizio API locale non raggiungibile. Avvia bitcoin_api_bridge.py.";
+        showMessage("Il browser non riesce a raggiungere " + LOCAL_BRIDGE_URL + ". Controlla che la finestra del servizio sia ancora aperta.", "error");
+      }
+    }
+
+    async function verifySingleBalance(item, resultElement, button) {
+      button.disabled = true;
+      resultElement.textContent = "Verifica in corso...";
+
+      try {
+        const response = await fetch(LOCAL_BRIDGE_URL + "/balance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            wif: item.wif
+          })
+        });
+        const data = await readJsonResponse(response);
+
+        if (!response.ok) {
+          throw new Error(data.error || "Verifica non riuscita.");
+        }
+
+        resultElement.textContent = formatSats(data.balance_sats);
+        resultElement.title = data.addresses.join("\n") + "\nFonte: " + data.provider;
+        showMessage("Saldo verificato tramite " + data.provider + ".", "ok");
+      } catch (error) {
+        resultElement.textContent = "Errore";
+        showMessage(error.message, "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    // Genera la sequenza richiesta e verifica che non superi il limite secp256k1.
+    function buildRows(start, quantity) {
+      if (start < 1n) {
+        throw new Error("Numero iniziale deve essere almeno 1.");
+      }
+
+      if (start > MAX_PRIVATE_KEY) {
+        throw new Error("Numero iniziale superiore al limite massimo della curva secp256k1.");
+      }
+
+      const last = start + BigInt(quantity) - 1n;
+
+      if (last > MAX_PRIVATE_KEY) {
+        throw new Error("La sequenza supera il limite massimo della curva secp256k1.");
+      }
+
+      const rows = [];
+
+      for (let index = 0; index < quantity; index += 1) {
+        const number = start + BigInt(index);
+        rows.push({
+          number,
+          wif: privateKeyToCompressedWif(number)
+        });
+      }
+
+      return rows;
+    }
+
+    function generate() {
+      try {
+        clearMessage();
+        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
+        const quantity = parseQuantity();
+        updateScaleInfo();
+        currentRows = buildRows(start, quantity);
+        renderRows(currentRows);
+      } catch (error) {
+        currentRows = [];
+        setEmptyTable("Nessuna chiave generata.");
+        showMessage(error.message, "error");
+      }
+    }
+
+    function moveForward() {
+      try {
+        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
+        const quantity = parseQuantity();
+        startNumberInput.value = (start + BigInt(quantity)).toString();
+        generate();
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    }
+
+    function moveBackward() {
+      try {
+        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
+        const quantity = parseQuantity();
+        const previousStart = start - BigInt(quantity);
+        startNumberInput.value = (previousStart < 1n ? 1n : previousStart).toString();
+        generate();
+      } catch (error) {
+        showMessage(error.message, "error");
+      }
+    }
+
+    function makeCsv() {
+      const lines = [];
+
+      for (const item of currentRows) {
+        lines.push(item.wif);
+      }
+
+      return lines.join("\r\n");
+    }
+
+    async function copyCsv() {
+      if (currentRows.length === 0) {
+        showMessage("Genera almeno una chiave prima di copiare il CSV.", "error");
+        return;
+      }
+
+      const csv = makeCsv();
+
+      try {
+        await navigator.clipboard.writeText(csv);
+        showMessage("CSV copiato negli appunti.", "ok");
+      } catch (error) {
+        showMessage("Il browser non consente la copia automatica dagli appunti. Usa Scarica CSV.", "error");
+      }
+    }
+
+    function downloadCsv() {
+      if (currentRows.length === 0) {
+        showMessage("Genera almeno una chiave prima di scaricare il CSV.", "error");
+        return;
+      }
+
+      // Il download usa un Blob locale creato nel browser, senza chiamate di rete.
+      const csv = makeCsv();
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "chiavi_private_bitcoin_didattiche.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showMessage("CSV preparato per il download.", "ok");
+    }
+
+    generateButton.addEventListener("click", generate);
+    nextButton.addEventListener("click", moveForward);
+    previousButton.addEventListener("click", moveBackward);
+    copyButton.addEventListener("click", copyCsv);
+    downloadButton.addEventListener("click", downloadCsv);
+    checkNodeButton.addEventListener("click", checkNodeStatus);
+    startNumberInput.addEventListener("input", updateScaleInfo);
+    quantityInput.addEventListener("input", updateScaleInfo);
+
+    // Valore iniziale richiesto: 200 chiavi mostrate quando l'utente preme Genera.
+    quantityInput.value = String(DEFAULT_QUANTITY);
+    updateScaleInfo();
+    checkNodeStatus();
+  </script>
+</body>
+</html>
