@@ -356,12 +356,12 @@
       <div id="message" class="message" role="status" aria-live="polite"></div>
 
       <p class="limit-note">Limite massimo: 20.000 chiavi per pagina, per evitare rallentamenti o blocchi del browser durante il calcolo e la visualizzazione della tabella.</p>
-      <p class="limit-note">Avvia prima il servizio API locale. La verifica usa mempool.space con fallback su Blockstream e richiede una connessione Internet.</p>
+      <p class="limit-note">La verifica contatta direttamente mempool.space, con fallback su Blockstream, e richiede una connessione Internet. Le chiavi private restano sempre nel browser.</p>
 
       <div class="node-status">
         <span id="nodeStatusDot" class="status-dot" aria-hidden="true"></span>
-        <span id="nodeStatusText">Servizio API locale non verificato</span>
-        <button id="checkNodeButton" class="secondary" type="button">Controlla servizio API</button>
+        <span id="nodeStatusText">API pubbliche non verificate</span>
+        <button id="checkNodeButton" class="secondary" type="button">Controlla API</button>
       </div>
 
       <div class="scale-info">
@@ -399,16 +399,35 @@
     "use strict";
 
     /*
-      Questa versione usa fetch esclusivamente verso 127.0.0.1. Il servizio
-      locale invia agli explorer pubblici soltanto gli indirizzi Bitcoin.
+      La chiave pubblica e gli indirizzi Bitcoin vengono derivati nel browser.
+      Le richieste agli explorer contengono esclusivamente indirizzi pubblici.
     */
 
     // Ordine massimo della curva secp256k1: le chiavi private valide vanno da 1 a MAX_PRIVATE_KEY.
     const MAX_PRIVATE_KEY = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140");
     const DEFAULT_QUANTITY = 200;
     const MAX_QUANTITY = 20000;
-    const LOCAL_BRIDGE_URL = "http://127.0.0.1:18766";
     const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    const BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+    const FIELD_PRIME = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+    const GENERATOR_X = BigInt("55066263022277343669578718895168534326250603453777594175500187360389116729240");
+    const GENERATOR_Y = BigInt("32670510020758816978083085130507043184471273380659243275938904335757337482424");
+    const API_PROVIDERS = [
+      {
+        name: "mempool.space",
+        tipUrl: "https://mempool.space/api/blocks/tip/height",
+        addressUrl: function (address) {
+          return "https://mempool.space/api/address/" + encodeURIComponent(address);
+        }
+      },
+      {
+        name: "Blockstream",
+        tipUrl: "https://blockstream.info/api/blocks/tip/height",
+        addressUrl: function (address) {
+          return "https://blockstream.info/api/address/" + encodeURIComponent(address);
+        }
+      }
+    ];
     const SHA256_K = [
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
       0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -611,6 +630,234 @@
       return base58Encode(concatBytes([payload, checksum]));
     }
 
+    function base58Check(payload) {
+      const checksum = sha256(sha256(payload)).slice(0, 4);
+      return base58Encode(concatBytes([payload, checksum]));
+    }
+
+    function rotateLeft(value, bits) {
+      return ((value << bits) | (value >>> (32 - bits))) >>> 0;
+    }
+
+    // RIPEMD-160 completa HASH160 insieme a SHA-256, senza dipendenze esterne.
+    function ripemd160(bytes) {
+      const r1 = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8,
+        3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12,
+        1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2,
+        4, 0, 5, 9, 7, 12, 2, 10, 14, 1, 3, 8, 11, 6, 15, 13
+      ];
+      const r2 = [
+        5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12,
+        6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2,
+        15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13,
+        8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14,
+        12, 15, 10, 4, 1, 5, 8, 7, 6, 2, 13, 14, 0, 3, 9, 11
+      ];
+      const s1 = [
+        11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8,
+        7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12,
+        11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5,
+        11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12,
+        9, 15, 5, 11, 6, 8, 13, 12, 5, 12, 13, 14, 11, 8, 5, 6
+      ];
+      const s2 = [
+        8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6,
+        9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11,
+        9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5,
+        15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8,
+        8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11
+      ];
+      const bitLength = bytes.length * 8;
+      const paddedLength = (((bytes.length + 9 + 63) >> 6) << 6);
+      const padded = new Uint8Array(paddedLength);
+      padded.set(bytes);
+      padded[bytes.length] = 0x80;
+      let remainingLength = BigInt(bitLength);
+      for (let index = 0; index < 8; index += 1) {
+        padded[paddedLength - 8 + index] = Number(remainingLength & 0xffn);
+        remainingLength >>= 8n;
+      }
+
+      function f(round, x, y, z) {
+        if (round < 16) return (x ^ y ^ z) >>> 0;
+        if (round < 32) return ((x & y) | (~x & z)) >>> 0;
+        if (round < 48) return ((x | ~y) ^ z) >>> 0;
+        if (round < 64) return ((x & z) | (y & ~z)) >>> 0;
+        return (x ^ (y | ~z)) >>> 0;
+      }
+
+      function leftConstant(round) {
+        return round < 16 ? 0x00000000 :
+          round < 32 ? 0x5a827999 :
+          round < 48 ? 0x6ed9eba1 :
+          round < 64 ? 0x8f1bbcdc : 0xa953fd4e;
+      }
+
+      function rightConstant(round) {
+        return round < 16 ? 0x50a28be6 :
+          round < 32 ? 0x5c4dd124 :
+          round < 48 ? 0x6d703ef3 :
+          round < 64 ? 0x7a6d76e9 : 0x00000000;
+      }
+
+      let h0 = 0x67452301;
+      let h1 = 0xefcdab89;
+      let h2 = 0x98badcfe;
+      let h3 = 0x10325476;
+      let h4 = 0xc3d2e1f0;
+
+      for (let offset = 0; offset < padded.length; offset += 64) {
+        const words = new Uint32Array(16);
+        for (let index = 0; index < 16; index += 1) {
+          const position = offset + index * 4;
+          words[index] = (
+            padded[position] |
+            (padded[position + 1] << 8) |
+            (padded[position + 2] << 16) |
+            (padded[position + 3] << 24)
+          ) >>> 0;
+        }
+
+        let al = h0, bl = h1, cl = h2, dl = h3, el = h4;
+        let ar = h0, br = h1, cr = h2, dr = h3, er = h4;
+
+        for (let round = 0; round < 80; round += 1) {
+          let temp = (rotateLeft((al + f(round, bl, cl, dl) + words[r1[round]] + leftConstant(round)) >>> 0, s1[round]) + el) >>> 0;
+          al = el; el = dl; dl = rotateLeft(cl, 10); cl = bl; bl = temp;
+
+          temp = (rotateLeft((ar + f(79 - round, br, cr, dr) + words[r2[round]] + rightConstant(round)) >>> 0, s2[round]) + er) >>> 0;
+          ar = er; er = dr; dr = rotateLeft(cr, 10); cr = br; br = temp;
+        }
+
+        const temp = (h1 + cl + dr) >>> 0;
+        h1 = (h2 + dl + er) >>> 0;
+        h2 = (h3 + el + ar) >>> 0;
+        h3 = (h4 + al + br) >>> 0;
+        h4 = (h0 + bl + cr) >>> 0;
+        h0 = temp;
+      }
+
+      const digest = new Uint8Array(20);
+      [h0, h1, h2, h3, h4].forEach(function (word, index) {
+        const position = index * 4;
+        digest[position] = word & 0xff;
+        digest[position + 1] = (word >>> 8) & 0xff;
+        digest[position + 2] = (word >>> 16) & 0xff;
+        digest[position + 3] = (word >>> 24) & 0xff;
+      });
+      return digest;
+    }
+
+    function hash160(bytes) {
+      return ripemd160(sha256(bytes));
+    }
+
+    function modulo(value, modulus) {
+      const result = value % modulus;
+      return result >= 0n ? result : result + modulus;
+    }
+
+    function modularPower(base, exponent, modulus) {
+      let result = 1n;
+      let factor = modulo(base, modulus);
+      let power = exponent;
+      while (power > 0n) {
+        if (power & 1n) result = (result * factor) % modulus;
+        factor = (factor * factor) % modulus;
+        power >>= 1n;
+      }
+      return result;
+    }
+
+    function inverse(value) {
+      return modularPower(value, FIELD_PRIME - 2n, FIELD_PRIME);
+    }
+
+    function pointAdd(first, second) {
+      if (first === null) return second;
+      if (second === null) return first;
+      const x1 = first[0], y1 = first[1], x2 = second[0], y2 = second[1];
+      if (x1 === x2 && modulo(y1 + y2, FIELD_PRIME) === 0n) return null;
+      const slope = x1 === x2 && y1 === y2
+        ? modulo(3n * x1 * x1 * inverse(2n * y1), FIELD_PRIME)
+        : modulo((y2 - y1) * inverse(x2 - x1), FIELD_PRIME);
+      const x3 = modulo(slope * slope - x1 - x2, FIELD_PRIME);
+      const y3 = modulo(slope * (x1 - x3) - y1, FIELD_PRIME);
+      return [x3, y3];
+    }
+
+    function scalarMultiply(value) {
+      let result = null;
+      let addend = [GENERATOR_X, GENERATOR_Y];
+      let scalar = value;
+      while (scalar > 0n) {
+        if (scalar & 1n) result = pointAdd(result, addend);
+        addend = pointAdd(addend, addend);
+        scalar >>= 1n;
+      }
+      if (result === null) throw new Error("Impossibile derivare la chiave pubblica.");
+      return result;
+    }
+
+    function bech32Polymod(values) {
+      const generators = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+      let checksum = 1;
+      for (const value of values) {
+        const top = checksum >>> 25;
+        checksum = (((checksum & 0x1ffffff) << 5) ^ value) >>> 0;
+        for (let index = 0; index < 5; index += 1) {
+          if ((top >>> index) & 1) checksum = (checksum ^ generators[index]) >>> 0;
+        }
+      }
+      return checksum >>> 0;
+    }
+
+    function convertBits(bytes, fromBits, toBits) {
+      let accumulator = 0;
+      let bitCount = 0;
+      const result = [];
+      const maximum = (1 << toBits) - 1;
+      for (const value of bytes) {
+        accumulator = (accumulator << fromBits) | value;
+        bitCount += fromBits;
+        while (bitCount >= toBits) {
+          bitCount -= toBits;
+          result.push((accumulator >>> bitCount) & maximum);
+        }
+      }
+      if (bitCount > 0) result.push((accumulator << (toBits - bitCount)) & maximum);
+      return result;
+    }
+
+    function segwitAddress(program) {
+      const data = [0].concat(convertBits(program, 8, 5));
+      const expanded = [3, 3, 0, 2, 3].concat(data, [0, 0, 0, 0, 0, 0]);
+      const polymod = (bech32Polymod(expanded) ^ 1) >>> 0;
+      const checksum = [];
+      for (let index = 0; index < 6; index += 1) {
+        checksum.push((polymod >>> (5 * (5 - index))) & 31);
+      }
+      return "bc1" + data.concat(checksum).map(function (value) {
+        return BECH32_CHARSET[value];
+      }).join("");
+    }
+
+    // Produce gli indirizzi Legacy, Nested SegWit e Native SegWit dalla chiave numerica.
+    function deriveAddresses(privateKey) {
+      const point = scalarMultiply(privateKey);
+      const publicKey = concatBytes([
+        new Uint8Array([point[1] % 2n === 0n ? 0x02 : 0x03]),
+        bigIntTo32Bytes(point[0])
+      ]);
+      const publicKeyHash = hash160(publicKey);
+      const legacy = base58Check(concatBytes([new Uint8Array([0x00]), publicKeyHash]));
+      const redeemScript = concatBytes([new Uint8Array([0x00, 0x14]), publicKeyHash]);
+      const nestedSegwit = base58Check(concatBytes([new Uint8Array([0x05]), hash160(redeemScript)]));
+      return [legacy, nestedSegwit, segwitAddress(publicKeyHash)];
+    }
+
     // Accetta input decimale oppure esadecimale con prefisso 0x, così è comodo provare valori grandi.
     function parsePositiveBigInt(text, fieldName) {
       const cleaned = text.trim();
@@ -753,46 +1000,87 @@
       try {
         return JSON.parse(text);
       } catch (error) {
-        throw new Error(text || "Risposta non valida dal servizio locale.");
+        throw new Error(text || "Risposta non valida dall'explorer.");
       }
     }
 
+    async function fetchWithTimeout(url, options) {
+      const controller = new AbortController();
+      const timeout = setTimeout(function () {
+        controller.abort();
+      }, 15000);
+      try {
+        return await fetch(url, Object.assign({
+          cache: "no-store",
+          signal: controller.signal
+        }, options || {}));
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function readProviderTip(provider) {
+      const response = await fetchWithTimeout(provider.tipUrl);
+      if (!response.ok) throw new Error(provider.name + " non disponibile.");
+      return (await response.text()).trim();
+    }
+
     async function checkNodeStatus() {
-      nodeStatusText.textContent = "Controllo del servizio API locale...";
+      nodeStatusText.textContent = "Controllo delle API pubbliche...";
       nodeStatusDot.classList.remove("online");
 
-      try {
-        const healthResponse = await fetch(LOCAL_BRIDGE_URL + "/health", {
-          method: "GET",
-          cache: "no-store"
-        });
-        const healthData = await readJsonResponse(healthResponse);
-
-        if (!healthResponse.ok || healthData.service !== "online") {
-          throw new Error("Il servizio locale non risponde correttamente.");
-        }
-
-        nodeStatusDot.classList.add("online");
-        nodeStatusText.textContent = "Servizio API locale attivo. Controllo connessione Internet...";
-
-        const response = await fetch(LOCAL_BRIDGE_URL + "/status", {
-          method: "GET",
-          cache: "no-store"
-        });
-        const data = await readJsonResponse(response);
-
-        if (!response.ok) {
-          nodeStatusText.textContent = "Servizio locale attivo, ma le API pubbliche non sono raggiungibili.";
-          showMessage(data.error || "API pubbliche non disponibili.", "error");
+      for (const provider of API_PROVIDERS) {
+        try {
+          const height = await readProviderTip(provider);
+          nodeStatusDot.classList.add("online");
+          nodeStatusText.textContent = "API pronta: " + provider.name + ", blocco " + height;
           return;
+        } catch (error) {
+          // Prova automaticamente il provider successivo.
         }
-
-        nodeStatusText.textContent = "Servizio API pronto: " + data.provider;
-      } catch (error) {
-        nodeStatusDot.classList.remove("online");
-        nodeStatusText.textContent = "Servizio API locale non raggiungibile. Avvia bitcoin_api_bridge.py.";
-        showMessage("Il browser non riesce a raggiungere " + LOCAL_BRIDGE_URL + ". Controlla che la finestra del servizio sia ancora aperta.", "error");
       }
+
+      nodeStatusText.textContent = "API pubbliche non raggiungibili";
+      showMessage("Controlla la connessione Internet o riprova tra poco.", "error");
+    }
+
+    async function fetchAddressData(provider, address) {
+      const response = await fetchWithTimeout(provider.addressUrl(address));
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        if (response.status === 429) throw new Error(provider.name + ": limite temporaneo di richieste raggiunto.");
+        throw new Error(provider.name + ": verifica non disponibile.");
+      }
+      const chain = data.chain_stats || {};
+      const mempool = data.mempool_stats || {};
+      return {
+        balance: BigInt(chain.funded_txo_sum || 0) - BigInt(chain.spent_txo_sum || 0) +
+          BigInt(mempool.funded_txo_sum || 0) - BigInt(mempool.spent_txo_sum || 0),
+        transactions: Number(chain.tx_count || 0) + Number(mempool.tx_count || 0)
+      };
+    }
+
+    async function queryAddresses(addresses) {
+      let lastError = null;
+      for (const provider of API_PROVIDERS) {
+        try {
+          const results = await Promise.all(addresses.map(function (address) {
+            return fetchAddressData(provider, address);
+          }));
+          return {
+            provider: provider.name,
+            balance: results.reduce(function (total, item) {
+              return total + item.balance;
+            }, 0n),
+            transactions: results.reduce(function (total, item) {
+              return total + item.transactions;
+            }, 0)
+          };
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("API pubbliche non disponibili.");
     }
 
     async function verifySingleBalance(item, resultElement, button) {
@@ -800,27 +1088,14 @@
       resultElement.textContent = "Verifica in corso...";
 
       try {
-        const response = await fetch(LOCAL_BRIDGE_URL + "/balance", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            wif: item.wif
-          })
-        });
-        const data = await readJsonResponse(response);
-
-        if (!response.ok) {
-          throw new Error(data.error || "Verifica non riuscita.");
-        }
-
-        resultElement.textContent = formatSats(data.balance_sats);
-        resultElement.title = data.addresses.join("\n") + "\nFonte: " + data.provider;
-        showMessage("Saldo verificato tramite " + data.provider + ".", "ok");
+        const addresses = deriveAddresses(item.number);
+        const data = await queryAddresses(addresses);
+        resultElement.textContent = formatSats(data.balance);
+        resultElement.title = addresses.join("\n") + "\nFonte: " + data.provider;
+        showMessage("Saldo verificato tramite " + data.provider + ". Indirizzi consultati: 3.", "ok");
       } catch (error) {
         resultElement.textContent = "Errore";
-        showMessage(error.message, "error");
+        showMessage(error.name === "AbortError" ? "La richiesta ha impiegato troppo tempo. Riprova." : error.message, "error");
       } finally {
         button.disabled = false;
       }
