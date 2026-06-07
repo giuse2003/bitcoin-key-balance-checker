@@ -16,6 +16,7 @@ https://giuse2003.github.io/bitcoin-key-balance-checker/
 
 ## Stato attuale
 
+- la cartella locale `verifica-api` è un repository Git collegato a `origin/main`;
 - applicazione interamente statica;
 - nessun servizio Python o Bitcoin Core richiesto;
 - nessuna dipendenza esterna o CDN;
@@ -72,4 +73,3 @@ La chiave privata numerica `1` deve produrre:
 - Legacy: `1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH`
 - Nested SegWit: `3JvL6Ymt8MVWiCNHC7oWU6nLeHNJKLZGLN`
 - Native SegWit: `bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4`
-
