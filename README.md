@@ -1,46 +1,26 @@
-# Generatore Bitcoin con verifica API
+# Bitcoin Key Balance Checker
 
-Versione separata del generatore che verifica il saldo di una singola chiave alla volta tramite API pubbliche indicizzate.
+Generatore di chiavi private Bitcoin sequenziali con verifica manuale del saldo tramite explorer pubblici.
 
-## Avvio
+## Uso
 
-1. Esegui `AVVIA_VERIFICA_API.bat`.
-2. Lascia aperta la finestra del servizio.
-3. Apri `bitcoin-api.html` oppure la pagina GitHub Pages.
-4. Premi `Controlla servizio API`.
-5. Genera le chiavi e premi `Verifica` sulla riga desiderata.
+Apri `index.html` nel browser oppure visita:
+
+https://giuse2003.github.io/bitcoin-key-balance-checker/
+
+Non occorre installare o avviare alcun servizio sul PC.
 
 ## Funzionamento
 
-La WIF viene elaborata localmente. Il programma deriva tre indirizzi pubblici:
+Tutti i calcoli crittografici avvengono nel browser. Per la riga scelta, la pagina:
 
-- Legacy;
-- Nested SegWit;
-- Native SegWit.
+1. deriva localmente la chiave pubblica;
+2. genera gli indirizzi Legacy, Nested SegWit e Native SegWit;
+3. consulta mempool.space, usando Blockstream come servizio di riserva;
+4. somma il saldo dei tre indirizzi.
 
-Solo questi indirizzi pubblici vengono inviati a:
+La chiave privata WIF non viene trasmessa. Gli explorer ricevono soltanto gli indirizzi pubblici consultati.
 
-1. mempool.space;
-2. Blockstream, se il primo servizio non risponde.
+## Privacy
 
-La chiave privata WIF non viene inviata online e non viene salvata automaticamente.
-
-## Privacy e limiti
-
-Gli explorer pubblici possono vedere gli indirizzi consultati e applicare limiti di richiesta. La verifica va usata soltanto per chiavi di propria proprietà.
-
-Il servizio locale ascolta esclusivamente su:
-
-```text
-127.0.0.1:18766
-```
-
-## GitHub Pages
-
-La pagina pubblica può essere aperta da:
-
-```text
-https://giuse2003.github.io/bitcoin-key-balance-checker/
-```
-
-Il file `AVVIA_VERIFICA_API.bat` deve comunque essere avviato sul PC prima di usare il pulsante di verifica.
+Gli explorer pubblici possono conoscere gli indirizzi sottoposti a verifica e applicare limiti temporanei alle richieste. Usa la funzione esclusivamente per chiavi di tua proprieta.
