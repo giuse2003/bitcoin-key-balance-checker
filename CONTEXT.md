@@ -28,7 +28,8 @@ https://giuse2003.github.io/bitcoin-key-balance-checker/
 - WIF compresse;
 - CSV senza intestazione e senza numeri progressivi;
 - layout mobile con WIF su più righe;
-- verifica manuale tramite mempool.space e fallback Blockstream.
+- verifica manuale in parallelo tramite mempool.space, Blockstream e BlockCypher;
+- viene usata la prima risposta completa e valida.
 
 ## Architettura
 
@@ -43,7 +44,7 @@ Il browser esegue localmente:
 - Bech32;
 - derivazione degli indirizzi P2PKH, P2SH-P2WPKH e P2WPKH.
 
-Solo gli indirizzi pubblici vengono inviati agli explorer. Le WIF restano nel browser.
+Solo gli indirizzi pubblici vengono inviati ai tre explorer. Le WIF restano nel browser.
 
 ## Regole da conservare
 

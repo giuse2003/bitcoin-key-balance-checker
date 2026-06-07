@@ -462,7 +462,7 @@
       <div id="message" class="message" role="status" aria-live="polite"></div>
 
       <p class="limit-note">Limite massimo: 20.000 chiavi per pagina, per evitare rallentamenti o blocchi del browser durante il calcolo e la visualizzazione della tabella.</p>
-      <p class="limit-note">La verifica contatta direttamente mempool.space, con fallback su Blockstream, e richiede una connessione Internet. Le chiavi private restano sempre nel browser.</p>
+      <p class="limit-note">La verifica interroga contemporaneamente mempool.space, Blockstream e BlockCypher e usa la prima risposta completa e valida. Le chiavi private restano sempre nel browser.</p>
 
       <div class="node-status">
         <span id="nodeStatusDot" class="status-dot" aria-hidden="true"></span>
@@ -521,6 +521,7 @@
     const API_PROVIDERS = [
       {
         name: "mempool.space",
+        type: "esplora",
         tipUrl: "https://mempool.space/api/blocks/tip/height",
         addressUrl: function (address) {
           return "https://mempool.space/api/address/" + encodeURIComponent(address);
@@ -528,9 +529,19 @@
       },
       {
         name: "Blockstream",
+        type: "esplora",
         tipUrl: "https://blockstream.info/api/blocks/tip/height",
         addressUrl: function (address) {
           return "https://blockstream.info/api/address/" + encodeURIComponent(address);
+        }
+      },
+      {
+        name: "BlockCypher",
+        type: "blockcypher",
+        tipUrl: "https://api.blockcypher.com/v1/btc/main",
+        addressesUrl: function (addresses) {
+          return "https://api.blockcypher.com/v1/btc/main/addrs/" +
+            addresses.map(encodeURIComponent).join(";") + "/balance";
         }
       }
     ];
@@ -1157,6 +1168,11 @@
     async function readProviderTip(provider) {
       const response = await fetchWithTimeout(provider.tipUrl);
       if (!response.ok) throw new Error(provider.name + " non disponibile.");
+      if (provider.type === "blockcypher") {
+        const data = await readJsonResponse(response);
+        if (!data.height) throw new Error(provider.name + " non disponibile.");
+        return data.height.toString();
+      }
       return (await response.text()).trim();
     }
 
@@ -1164,19 +1180,20 @@
       nodeStatusText.textContent = "Controllo delle API pubbliche...";
       nodeStatusDot.classList.remove("online");
 
-      for (const provider of API_PROVIDERS) {
-        try {
-          const height = await readProviderTip(provider);
-          nodeStatusDot.classList.add("online");
-          nodeStatusText.textContent = "API pronta: " + provider.name + ", blocco " + height;
-          return;
-        } catch (error) {
-          // Prova automaticamente il provider successivo.
-        }
+      try {
+        const status = await Promise.any(API_PROVIDERS.map(async function (provider) {
+          return {
+            provider: provider.name,
+            height: await readProviderTip(provider)
+          };
+        }));
+        nodeStatusDot.classList.add("online");
+        nodeStatusText.textContent = "Gara tra 3 provider. Più veloce: " +
+          status.provider + ", blocco " + status.height;
+      } catch (error) {
+        nodeStatusText.textContent = "API pubbliche non raggiungibili";
+        showMessage("Controlla la connessione Internet o riprova tra poco.", "error");
       }
-
-      nodeStatusText.textContent = "API pubbliche non raggiungibili";
-      showMessage("Controlla la connessione Internet o riprova tra poco.", "error");
     }
 
     async function fetchAddressData(provider, address) {
@@ -1195,27 +1212,60 @@
       };
     }
 
-    async function queryAddresses(addresses) {
-      let lastError = null;
-      for (const provider of API_PROVIDERS) {
-        try {
-          const results = await Promise.all(addresses.map(function (address) {
-            return fetchAddressData(provider, address);
-          }));
-          return {
-            provider: provider.name,
-            balance: results.reduce(function (total, item) {
-              return total + item.balance;
-            }, 0n),
-            transactions: results.reduce(function (total, item) {
-              return total + item.transactions;
-            }, 0)
-          };
-        } catch (error) {
-          lastError = error;
-        }
+    async function queryBlockCypher(provider, addresses) {
+      const response = await fetchWithTimeout(provider.addressesUrl(addresses));
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        if (response.status === 429) throw new Error(provider.name + ": limite temporaneo di richieste raggiunto.");
+        throw new Error(provider.name + ": verifica non disponibile.");
       }
-      throw lastError || new Error("API pubbliche non disponibili.");
+      const results = Array.isArray(data) ? data : [data];
+      if (
+        results.length !== addresses.length ||
+        results.some(function (item) {
+          return typeof item.final_balance !== "number";
+        })
+      ) {
+        throw new Error(provider.name + ": risposta incompleta.");
+      }
+      return {
+        provider: provider.name,
+        balance: results.reduce(function (total, item) {
+          return total + BigInt(item.final_balance || 0);
+        }, 0n),
+        transactions: results.reduce(function (total, item) {
+          return total + Number(item.n_tx || 0);
+        }, 0)
+      };
+    }
+
+    async function queryProvider(provider, addresses) {
+      if (provider.type === "blockcypher") {
+        return queryBlockCypher(provider, addresses);
+      }
+
+      const results = await Promise.all(addresses.map(function (address) {
+        return fetchAddressData(provider, address);
+      }));
+      return {
+        provider: provider.name,
+        balance: results.reduce(function (total, item) {
+          return total + item.balance;
+        }, 0n),
+        transactions: results.reduce(function (total, item) {
+          return total + item.transactions;
+        }, 0)
+      };
+    }
+
+    async function queryAddresses(addresses) {
+      try {
+        return await Promise.any(API_PROVIDERS.map(function (provider) {
+          return queryProvider(provider, addresses);
+        }));
+      } catch (error) {
+        throw new Error("Nessuno dei tre explorer ha restituito una risposta valida. Riprova tra poco.");
+      }
     }
 
     async function verifySingleBalance(item, resultElement, button) {

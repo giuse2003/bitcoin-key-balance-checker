@@ -22,11 +22,11 @@ Quando si preme `Verifica`, la pagina:
 
 1. deriva localmente la chiave pubblica;
 2. genera gli indirizzi Legacy, Nested SegWit e Native SegWit;
-3. consulta mempool.space;
-4. usa Blockstream come servizio di riserva;
+3. interroga contemporaneamente mempool.space, Blockstream e BlockCypher;
+4. usa la prima risposta completa e valida;
 5. somma il saldo dei tre indirizzi.
 
-La WIF non viene trasmessa. Gli explorer ricevono esclusivamente gli indirizzi pubblici consultati.
+La WIF non viene trasmessa. I tre explorer ricevono esclusivamente gli indirizzi pubblici consultati.
 
 ## Uso locale
 
@@ -63,5 +63,4 @@ GitHub Pages pubblica automaticamente il contenuto del ramo `main`.
 
 ## Privacy e uso responsabile
 
-Gli explorer pubblici possono conoscere gli indirizzi verificati e applicare limiti temporanei. Usa la verifica esclusivamente per chiavi di tua proprietà. Il progetto non deve introdurre verifiche automatiche o massive di chiavi.
-
+I tre explorer pubblici possono conoscere gli indirizzi verificati e applicare limiti temporanei. Usa la verifica esclusivamente per chiavi di tua proprietà. Il progetto non deve introdurre verifiche automatiche o massive di chiavi.

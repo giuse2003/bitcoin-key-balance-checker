@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-06-08
+
+- aggiunto BlockCypher come terzo explorer;
+- avviate in parallelo le richieste a mempool.space, Blockstream e BlockCypher;
+- utilizzata automaticamente la prima risposta completa e valida.
+
 ## 2026-06-07
 
 - sostituito il numero iniziale con la selezione del numero di pagina;
