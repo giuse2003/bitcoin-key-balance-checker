@@ -9,6 +9,7 @@
 - portata nel browser la derivazione dei tre formati di indirizzo;
 - aggiunta la verifica diretta tramite mempool.space e Blockstream;
 - aggiunta documentazione per aggiornare il progetto da altre postazioni.
+- collegata la cartella locale al repository Git e documentata la configurazione delle credenziali.
 
 ## Versione iniziale
 
@@ -17,4 +18,3 @@
 - navigazione Avanti e Indietro;
 - copia e download CSV senza intestazione;
 - limite di 20.000 chiavi per pagina.
-
