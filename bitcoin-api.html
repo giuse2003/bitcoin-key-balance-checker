@@ -445,13 +445,13 @@
     <section class="panel" aria-label="Generatore">
       <div class="controls">
         <div>
-          <label for="startNumber">Numero iniziale</label>
-          <input id="startNumber" inputmode="numeric" autocomplete="off" spellcheck="false" value="1">
+          <label for="quantity">Quante chiavi generare</label>
+          <input id="quantity" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" value="200">
         </div>
 
         <div>
-          <label for="quantity">Quante chiavi generare</label>
-          <input id="quantity" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" value="200">
+          <label for="pageInput">Numero di pagina</label>
+          <input id="pageInput" inputmode="numeric" autocomplete="off" spellcheck="false" value="1">
         </div>
 
         <button id="generateButton" type="button">Genera</button>
@@ -545,8 +545,8 @@
       0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     ];
 
-    const startNumberInput = document.getElementById("startNumber");
     const quantityInput = document.getElementById("quantity");
+    const pageInput = document.getElementById("pageInput");
     const generateButton = document.getElementById("generateButton");
     const previousButton = document.getElementById("previousButton");
     const nextButton = document.getElementById("nextButton");
@@ -1023,6 +1023,39 @@
       return quantity;
     }
 
+    function parsePage() {
+      const pageText = pageInput.value.trim();
+
+      if (!/^[0-9]+$/.test(pageText)) {
+        throw new Error("Numero di pagina deve essere un numero intero positivo.");
+      }
+
+      const selectedPage = BigInt(pageText);
+
+      if (selectedPage < 1n) {
+        throw new Error("Numero di pagina deve essere almeno 1.");
+      }
+
+      return selectedPage;
+    }
+
+    function getPagination() {
+      const quantity = parseQuantityBigInt();
+      const selectedPage = parsePage();
+      const pages = (MAX_PRIVATE_KEY + quantity - 1n) / quantity;
+
+      if (selectedPage > pages) {
+        throw new Error("La pagina richiesta supera l'ultima pagina disponibile: " + formatBigInt(pages) + ".");
+      }
+
+      return {
+        quantity,
+        selectedPage,
+        pages,
+        start: ((selectedPage - 1n) * quantity) + 1n
+      };
+    }
+
     function showMessage(text, type) {
       message.textContent = text;
       message.className = "message " + type;
@@ -1035,13 +1068,9 @@
 
     function updateScaleInfo() {
       try {
-        const quantity = parseQuantityBigInt();
-        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
-        const currentPage = ((start - 1n) / quantity) + 1n;
-        const pages = (MAX_PRIVATE_KEY + quantity - 1n) / quantity;
-
-        pageNumber.textContent = formatBigInt(currentPage);
-        totalPages.textContent = formatBigInt(pages);
+        const pagination = getPagination();
+        pageNumber.textContent = formatBigInt(pagination.selectedPage);
+        totalPages.textContent = formatBigInt(pagination.pages);
       } catch (error) {
         pageNumber.textContent = "-";
         totalPages.textContent = "-";
@@ -1207,25 +1236,13 @@
       }
     }
 
-    // Genera la sequenza richiesta e verifica che non superi il limite secp256k1.
+    // Genera la pagina richiesta; l'ultima pagina può contenere meno righe.
     function buildRows(start, quantity) {
-      if (start < 1n) {
-        throw new Error("Numero iniziale deve essere almeno 1.");
-      }
-
-      if (start > MAX_PRIVATE_KEY) {
-        throw new Error("Numero iniziale superiore al limite massimo della curva secp256k1.");
-      }
-
-      const last = start + BigInt(quantity) - 1n;
-
-      if (last > MAX_PRIVATE_KEY) {
-        throw new Error("La sequenza supera il limite massimo della curva secp256k1.");
-      }
-
       const rows = [];
+      const available = MAX_PRIVATE_KEY - start + 1n;
+      const rowCount = Number(available < BigInt(quantity) ? available : BigInt(quantity));
 
-      for (let index = 0; index < quantity; index += 1) {
+      for (let index = 0; index < rowCount; index += 1) {
         const number = start + BigInt(index);
         rows.push({
           number,
@@ -1239,10 +1256,10 @@
     function generate() {
       try {
         clearMessage();
-        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
+        const pagination = getPagination();
         const quantity = parseQuantity();
         updateScaleInfo();
-        currentRows = buildRows(start, quantity);
+        currentRows = buildRows(pagination.start, quantity);
         renderRows(currentRows);
       } catch (error) {
         currentRows = [];
@@ -1253,9 +1270,11 @@
 
     function moveForward() {
       try {
-        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
-        const quantity = parseQuantity();
-        startNumberInput.value = (start + BigInt(quantity)).toString();
+        const pagination = getPagination();
+        if (pagination.selectedPage >= pagination.pages) {
+          throw new Error("Sei già all'ultima pagina disponibile.");
+        }
+        pageInput.value = (pagination.selectedPage + 1n).toString();
         generate();
       } catch (error) {
         showMessage(error.message, "error");
@@ -1264,10 +1283,8 @@
 
     function moveBackward() {
       try {
-        const start = parsePositiveBigInt(startNumberInput.value, "Numero iniziale");
-        const quantity = parseQuantity();
-        const previousStart = start - BigInt(quantity);
-        startNumberInput.value = (previousStart < 1n ? 1n : previousStart).toString();
+        const selectedPage = parsePage();
+        pageInput.value = (selectedPage > 1n ? selectedPage - 1n : 1n).toString();
         generate();
       } catch (error) {
         showMessage(error.message, "error");
@@ -1327,7 +1344,7 @@
     copyButton.addEventListener("click", copyCsv);
     downloadButton.addEventListener("click", downloadCsv);
     checkNodeButton.addEventListener("click", checkNodeStatus);
-    startNumberInput.addEventListener("input", updateScaleInfo);
+    pageInput.addEventListener("input", updateScaleInfo);
     quantityInput.addEventListener("input", updateScaleInfo);
 
     // Valore iniziale richiesto: 200 chiavi mostrate quando l'utente preme Genera.
