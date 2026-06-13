@@ -223,11 +223,21 @@ def load_checkpoint():
         write_checkpoint(initial)
         return initial
 
+def safe_write_json(file_path, data):
+    tmp_file = file_path + ".tmp"
+    for attempt in range(15):
+        try:
+            with open(tmp_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp_file, file_path)
+            return
+        except (PermissionError, OSError) as e:
+            if attempt == 14:
+                raise e
+            time.sleep(0.1)
+
 def write_checkpoint(checkpoint):
-    tmp_file = CHECKPOINT_FILE + ".tmp"
-    with open(tmp_file, "w", encoding="utf-8") as f:
-        json.dump(checkpoint, f, indent=2)
-    os.replace(tmp_file, CHECKPOINT_FILE)
+    safe_write_json(CHECKPOINT_FILE, checkpoint)
 
 # --- Results Management ---
 def save_positive_match(private_key_int, wif, addresses, fulcrum_data):
@@ -248,10 +258,7 @@ def save_positive_match(private_key_int, wif, addresses, fulcrum_data):
     }
     results.append(match_entry)
     
-    tmp_file = RESULTS_FILE + ".tmp"
-    with open(tmp_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-    os.replace(tmp_file, RESULTS_FILE)
+    safe_write_json(RESULTS_FILE, results)
     logging.info(f"!!! TROVATO SALDO O STORICO !!! Salvato in {RESULTS_FILE}")
 
 # --- Main Program Execution ---
