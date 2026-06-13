@@ -344,7 +344,23 @@ def main():
         if has_balance:
             save_positive_match(next_key, wif, addresses, fulcrum_results)
             
-        # Step 5: Save checkpoint and advance key
+            # Salva il checkpoint registrando questa chiave come completata
+            checkpoint_update = {
+                "last_completed_private_key_number": str(next_key),
+                "next_private_key_number": str(next_key + 1),
+                "checked_keys": str(checked_keys + 1),
+                "updated_at": datetime.datetime.now().isoformat()
+            }
+            write_checkpoint(checkpoint_update)
+            
+            logging.info("======================================================================")
+            logging.info(f"!!! RILEVATO SALDO ATTIVO SULLA CHIAVE #{next_key} !!!")
+            logging.info("Lo script è stato INTERROTTO per attendere il tuo intervento.")
+            logging.info("Puoi ispezionare il file risultati.json per tutti i dettagli.")
+            logging.info("======================================================================")
+            break
+            
+        # Step 5: Save checkpoint and advance key (for zero balance keys)
         last_completed = next_key
         next_key += 1
         checked_keys += 1
