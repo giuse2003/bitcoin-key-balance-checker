@@ -341,7 +341,7 @@ def main():
         )
         
         # Step 4: Classify results
-        if has_balance or has_history:
+        if has_balance:
             save_positive_match(next_key, wif, addresses, fulcrum_results)
             
         # Step 5: Save checkpoint and advance key
